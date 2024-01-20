@@ -1,30 +1,43 @@
 const fs = require('fs');
 const path = require('path');
+const { promisify } = require('util');
 
-const sourceDirectory = '/path/to/your/source/directory';
-const targetDirectory = '/path/to/your/target/directory';
-const listFilePath = '/path/to/your/list.txt';
+const sourceDirectory = './source';
+const targetDirectory = './target';
+const listFilePath = 'list.txt';
+
+const copyFile = promisify(fs.copyFile);
 
 try {
+    // Membaca isi dari file list.txt
     const listData = fs.readFileSync(listFilePath, 'utf8');
     const filesInSourceDirectory = fs.readdirSync(sourceDirectory);
-    const fileNamesInList = listData.split('\n').map(name => name.trim());
+    const fileEntriesInList = listData.split('\n').map(entry => entry.trim());
 
-    filesInSourceDirectory.forEach((file) => {
-        if (fileNamesInList.includes(file)) {
-            const sourcePath = path.join(sourceDirectory, file);
-            const targetPath = path.join(targetDirectory, file);
+    // Iterasi melalui setiap file di direktori sumber
+    filesInSourceDirectory.forEach(async (file) => {
+        const sourcePath = path.join(sourceDirectory, file);
 
-            // Memindahkan file ke folder target
-            fs.rename(sourcePath, targetPath, (err) => {
-                if (err) {
-                    console.error(`Error moving ${file}:`, err);
-                } else {
-                    console.log(`${file} moved to ${targetDirectory}`);
-                }
-            });
+        // Mencari apakah nama file ada di data list.txt
+        const match = fileEntriesInList.find(entry => {
+            const [fileName] = entry.split('|');
+            return fileName === file;
+        });
+
+        if (match) {
+            // Mendapatkan nama file target
+            const [, targetFileName] = match.split('|');
+            const targetPath = path.join(targetDirectory, targetFileName);
+
+            // Menyalin dan merename file ke folder target
+            try {
+                await copyFile(sourcePath, targetPath);
+                console.log(`${file} berhasil disalin dan direname menjadi ${targetFileName} di ${targetDirectory}`);
+            } catch (err) {
+                console.error(`Error saat menyalin dan merename ${file}:`, err);
+            }
         } else {
-            console.log(`No match found for ${file}`);
+            console.log(`Tidak ada kesesuaian ditemukan untuk ${file}`);
         }
     });
 } catch (err) {
